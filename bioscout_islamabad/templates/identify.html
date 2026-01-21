@@ -1,0 +1,394 @@
+{% extends "base.html" %}
+
+{% block title %}Species Identification - BioScout Islamabad{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-md-12">
+            <h1 class="text-center mb-4">Species Identification</h1>
+            <p class="text-center mb-4">Upload an image of a plant or animal to identify it using the iNaturalist API</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Upload Image</h5>
+                </div>
+                <div class="card-body">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="form-group mb-3">
+                            <label for="imageUpload" class="form-label">Select an image of a plant or animal:</label>
+                            <input type="file" class="form-control" id="imageUpload" name="image" accept="image/*" required>
+                            <small class="form-text text-muted">Supported formats: JPG, PNG, GIF (max 10MB)</small>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="location" class="form-label">Location (optional):</label>
+                            <input type="text" class="form-control" id="location" name="location" placeholder="e.g., Margalla Hills, Rawal Lake">
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="notes" class="form-label">Notes (optional):</label>
+                            <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="Any additional observations or notes about the species"></textarea>
+                        </div>
+
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-success" id="identifyBtn">
+                                <i class="fas fa-search"></i> Identify Species
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Image Preview -->
+            <div class="card mb-4" id="previewCard" style="display: none;">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Image Preview</h5>
+                </div>
+                <div class="card-body text-center">
+                    <img id="imagePreview" class="img-fluid" style="max-height: 300px;" alt="Preview">
+                </div>
+            </div>
+
+            <!-- Loading Indicator -->
+            <div class="card mb-4" id="loadingCard" style="display: none;">
+                <div class="card-body text-center">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Identifying species... This may take a moment.</p>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div class="card mb-4" id="resultsCard" style="display: none;">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Identification Results</h5>
+                </div>
+                <div class="card-body">
+                    <div id="identificationResult">
+                        <!-- Results will be inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Observation Form -->
+            <div class="card mb-4" id="saveObservationCard" style="display: none;">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Save Observation</h5>
+                </div>
+                <div class="card-body">
+                    <form id="saveObservationForm">
+                        <input type="hidden" id="speciesName" name="species_name">
+                        <input type="hidden" id="aiIdentification" name="ai_identification">
+                        <input type="hidden" id="category" name="category">
+                        <input type="hidden" id="speciesType" name="species_type">
+
+                        <div class="form-group mb-3">
+                            <label for="confirmSpeciesName" class="form-label">Species Name:</label>
+                            <input type="text" class="form-control" id="confirmSpeciesName" name="confirm_species_name">
+                            <small class="form-text text-muted">You can edit this if the identification is incorrect</small>
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="confirmLocation" class="form-label">Location:</label>
+                            <input type="text" class="form-control" id="confirmLocation" name="confirm_location">
+                        </div>
+
+                        <div class="form-group mb-3">
+                            <label for="quantity" class="form-label">Quantity:</label>
+                            <input type="number" class="form-control" id="quantity" name="quantity" min="1" value="1">
+                        </div>
+
+                        <div class="text-center">
+                            <button type="submit" class="btn btn-success" id="saveObservationBtn">
+                                <i class="fas fa-save"></i> Save Observation
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    $(document).ready(function() {
+        // Image preview
+        $('#imageUpload').change(function() {
+            const file = this.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#imagePreview').attr('src', e.target.result);
+                    $('#previewCard').show();
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Handle form submission
+        $('#uploadForm').submit(function(e) {
+            e.preventDefault();
+            
+            // Show loading indicator
+            $('#loadingCard').show();
+            $('#resultsCard').hide();
+            $('#saveObservationCard').hide();
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('image', $('#imageUpload')[0].files[0]);
+            formData.append('location', $('#location').val());
+            formData.append('notes', $('#notes').val());
+            formData.append('use_ai', 'true');  // Use iNaturalist API
+            
+            // Send the request
+            $.ajax({
+                url: '/api/identify',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    // Hide loading
+                    $('#loadingCard').hide();
+                    
+                    if (response.success) {
+                        displayResults(response);
+                        prepareObservationForm(response);
+                    } else {
+                        displayError(response.message || 'Failed to identify species');
+                    }
+                },
+                error: function(xhr) {
+                    // Hide loading
+                    $('#loadingCard').hide();
+                    
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        displayError(response.message || 'Error identifying species');
+                    } catch (e) {
+                        displayError('Error identifying species. Please try again.');
+                    }
+                }
+            });
+        });
+
+        // Handle save observation form submission
+        $('#saveObservationForm').submit(function(e) {
+            e.preventDefault();
+            
+            // Show loading indicator
+            $('#loadingCard').show();
+            
+            // Create form data
+            const formData = new FormData();
+            formData.append('image', $('#imageUpload')[0].files[0]);
+            formData.append('species_name', $('#confirmSpeciesName').val());
+            formData.append('location', $('#confirmLocation').val());
+            formData.append('notes', $('#notes').val());
+            formData.append('ai_identification', $('#aiIdentification').val());
+            formData.append('category', $('#category').val());
+            formData.append('species_type', $('#speciesType').val());
+            formData.append('quantity', $('#quantity').val());
+            
+            // Send the request
+            $.ajax({
+                url: '/api/observations',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(response) {
+                    // Hide loading
+                    $('#loadingCard').hide();
+                    
+                    if (response.success) {
+                        displaySuccess('Observation saved successfully!', response.observation_id);
+                    } else {
+                        displayError(response.message || 'Failed to save observation');
+                    }
+                },
+                error: function(xhr) {
+                    // Hide loading
+                    $('#loadingCard').hide();
+                    
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        displayError(response.message || 'Error saving observation');
+                    } catch (e) {
+                        displayError('Error saving observation. Please try again.');
+                    }
+                }
+            });
+        });
+
+        // Function to display results
+        function displayResults(data) {
+            const resultsDiv = $('#identificationResult');
+            resultsDiv.empty();
+            
+            if (data.top_result) {
+                const result = data.top_result;
+                
+                // Create HTML for the result
+                let html = `
+                    <div class="text-center mb-4">
+                        <h3>${result.common_name}</h3>
+                        <h5 class="text-muted"><em>${result.scientific_name}</em></h5>
+                        <span class="badge bg-${result.confidence > 80 ? 'success' : result.confidence > 50 ? 'warning' : 'danger'}">
+                            ${result.confidence.toFixed(1)}% confidence
+                        </span>
+                        <span class="badge bg-info ms-2">${result.category}</span>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Taxonomy</h5>
+                            <ul class="list-group mb-3">
+                `;
+                
+                // Add taxonomy details
+                const taxonomy = result.taxonomy || {};
+                const taxonomyOrder = ['kingdom', 'phylum', 'class', 'order', 'family', 'genus', 'species'];
+                
+                taxonomyOrder.forEach(level => {
+                    if (taxonomy[level]) {
+                        html += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                ${level.charAt(0).toUpperCase() + level.slice(1)}
+                                <span class="text-primary">${taxonomy[level]}</span>
+                            </li>
+                        `;
+                    }
+                });
+                
+                html += `
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                `;
+                
+                // Add conservation status if available
+                if (result.conservation_status) {
+                    const status = result.conservation_status;
+                    html += `
+                        <h5>Conservation Status</h5>
+                        <ul class="list-group mb-3">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Status
+                                <span class="badge bg-warning">${status.status || 'Unknown'}</span>
+                            </li>
+                            ${status.authority ? `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                Authority
+                                <span>${status.authority}</span>
+                            </li>` : ''}
+                        </ul>
+                    `;
+                }
+                
+                // Add Wikipedia link if available
+                if (result.wikipedia_url) {
+                    html += `
+                        <h5>Additional Information</h5>
+                        <div class="mb-3">
+                            <a href="${result.wikipedia_url}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-book"></i> View on Wikipedia
+                            </a>
+                        </div>
+                    `;
+                }
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+                
+                // Add other possibilities
+                if (data.results && data.results.length > 1) {
+                    html += `
+                        <div class="mt-4">
+                            <h5>Other Possibilities</h5>
+                            <ul class="list-group">
+                    `;
+                    
+                    // Show other results (skip the first one)
+                    for (let i = 1; i < data.results.length; i++) {
+                        const altResult = data.results[i];
+                        html += `
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                ${altResult.common_name} (<em>${altResult.scientific_name}</em>)
+                                <span class="badge bg-${altResult.confidence > 80 ? 'success' : altResult.confidence > 50 ? 'warning' : 'danger'}">
+                                    ${altResult.confidence.toFixed(1)}%
+                                </span>
+                            </li>
+                        `;
+                    }
+                    
+                    html += `
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                resultsDiv.html(html);
+                $('#resultsCard').show();
+            } else {
+                resultsDiv.html('<div class="alert alert-warning">No species identified. Please try with a clearer image.</div>');
+                $('#resultsCard').show();
+            }
+        }
+
+        // Function to prepare observation form
+        function prepareObservationForm(data) {
+            if (data.top_result) {
+                // Set hidden fields
+                $('#speciesName').val(data.top_result.common_name);
+                $('#aiIdentification').val(data.identification_text || '');
+                $('#category').val(data.top_result.category.toLowerCase());
+                $('#speciesType').val(data.top_result.taxonomy.family || '');
+                
+                // Set visible fields
+                $('#confirmSpeciesName').val(data.top_result.common_name);
+                $('#confirmLocation').val($('#location').val());
+                
+                // Show the form
+                $('#saveObservationCard').show();
+            }
+        }
+
+        // Function to display error
+        function displayError(message) {
+            const resultsDiv = $('#identificationResult');
+            resultsDiv.html(`<div class="alert alert-danger">${message}</div>`);
+            $('#resultsCard').show();
+        }
+        
+        // Function to display success message after saving
+        function displaySuccess(message, observationId) {
+            const resultsDiv = $('#identificationResult');
+            resultsDiv.html(`
+                <div class="alert alert-success">
+                    <h4 class="alert-heading">Success!</h4>
+                    <p>${message}</p>
+                    <hr>
+                    <p class="mb-0">
+                        <a href="/observations/${observationId}" class="btn btn-primary btn-sm">View Observation</a>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-2" onclick="location.reload()">Identify Another</button>
+                    </p>
+                </div>
+            `);
+            $('#resultsCard').show();
+            $('#saveObservationCard').hide();
+        }
+    });
+</script>
+{% endblock %} 
