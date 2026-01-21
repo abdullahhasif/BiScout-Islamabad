@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BioScout Islamabad</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>BioScout Islamabad</h1>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="#" class="active">Map</a></li>
+                <li><a href="#" id="add-observation-nav">Add Observation</a></li>
+                <li><a href="#" id="about-nav">About</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <div class="map-container">
+            <div id="map"></div>
+            
+            <div class="query-container">
+                <form id="query-form">
+                    <input type="text" id="query-input" placeholder="Ask about biodiversity or type 'show me plants' to filter map...">
+                    <button type="submit">Ask</button>
+                </form>
+                <div style="margin-top: 8px; text-align: center; font-size: 13px; color: #fff;">
+                    <span>Try: </span>
+                    <a href="#" class="example-tag" data-query="Show me all plants on the map">Plants</a>
+                    <a href="#" class="example-tag" data-query="Show me all birds">Birds</a>
+                    <a href="#" class="example-tag" data-query="Show leopards">Leopards</a>
+                    <a href="#" class="example-tag" data-query="Tell me about Chir Pine">Chir Pine</a>
+                </div>
+            </div>
+            
+            <div id="query-results" class="query-results hidden">
+                <div class="results-header">
+                    <h3>Results</h3>
+                    <button id="close-results">×</button>
+                </div>
+                <div id="results-content"></div>
+            </div>
+        </div>
+        
+        <!-- Add Observation Modal -->
+        <div id="observation-modal" class="modal hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Add New Observation</h2>
+                    <button id="close-modal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="observation-form" enctype="multipart/form-data">
+                        <div class="form-tabs">
+                            <button type="button" class="tab-btn active" data-tab="basic-info">Basic Info</button>
+                            <button type="button" class="tab-btn" data-tab="species-details">Species Details</button>
+                            <button type="button" class="tab-btn" data-tab="location-tab">Location</button>
+                        </div>
+                        
+                        <!-- Basic Info Tab -->
+                        <div class="tab-content active" id="basic-info-content">
+                            <div class="form-section-title">Basic Observation Information</div>
+                            
+                            <div class="form-group required">
+                                <label for="image">Upload Image <span class="required-mark">*</span></label>
+                                <div class="file-upload-container">
+                                    <div class="file-upload-button">
+                                        <span>Select Image</span>
+                                        <input type="file" id="image" name="image" accept="image/*" required>
+                                    </div>
+                                    <span class="file-name">No file selected</span>
+                                </div>
+                                <div class="form-help">Upload a clear photo of the species</div>
+                                <div id="image-preview" class="image-preview-container hidden">
+                                    <img id="preview-img" src="" alt="Preview">
+                                    <button type="button" class="remove-image">&times;</button>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="species-name">Species Name</label>
+                                <input type="text" id="species-name" name="species_name" placeholder="Enter species name (if known)" list="common-species">
+                                <datalist id="common-species">
+                                    <option value="Himalayan Cedar">
+                                    <option value="Chir Pine">
+                                    <option value="Blue Pine">
+                                    <option value="Amaltas">
+                                    <option value="Paper Mulberry">
+                                    <option value="Common Leopard">
+                                    <option value="Barking Deer">
+                                    <option value="Wild Boar">
+                                    <option value="Himalayan Griffon">
+                                    <option value="Mallard Duck">
+                                </datalist>
+                                <div class="form-help">If unknown, leave blank for AI identification</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="category">Category</label>
+                                <select id="category" name="category">
+                                    <option value="">-- Select if known --</option>
+                                    <option value="plant">Plant</option>
+                                    <option value="animal">Animal</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn-next" data-next="species-details">Next: Species Details</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Species Details Tab -->
+                        <div class="tab-content" id="species-details-content">
+                            <div class="form-section-title">Species Details</div>
+                            
+                            <div class="form-group">
+                                <label for="date-observed">Date Observed</label>
+                                <input type="datetime-local" id="date-observed" name="date_observed">
+                                <div class="form-help">Leave blank for current date/time</div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="quantity">Quantity Observed</label>
+                                <input type="number" id="quantity" name="quantity" min="1" value="1">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="notes">Observation Notes</label>
+                                <textarea id="notes" name="notes" placeholder="Describe what you observed (size, behavior, condition, etc.)"></textarea>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn-prev" data-prev="basic-info">Previous</button>
+                                <button type="button" class="btn-next" data-next="location-tab">Next: Location</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Location Tab -->
+                        <div class="tab-content" id="location-tab-content">
+                            <div class="form-section-title">Location Information</div>
+                            
+                            <div class="form-group required">
+                                <label for="location">Location Name <span class="required-mark">*</span></label>
+                                <input type="text" id="location" name="location" placeholder="e.g., Margalla Hills Trail 3" required list="common-locations">
+                                <datalist id="common-locations">
+                                    <option value="Margalla Hills">
+                                    <option value="Rawal Lake">
+                                    <option value="Shakarparian Park">
+                                    <option value="Daman-e-Koh">
+                                    <option value="F-9 Park">
+                                    <option value="Islamabad Zoo Area">
+                                </datalist>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Pin Location on Map</label>
+                                <div class="map-selection">
+                                    <div id="location-map"></div>
+                                </div>
+                                <div class="form-help">Click on the map to set location coordinates</div>
+                                <input type="hidden" id="coordinates" name="coordinates">
+                                <div id="coordinates-display" class="coordinates-display"></div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="habitat">Habitat Type</label>
+                                <select id="habitat" name="habitat">
+                                    <option value="">-- Select Habitat --</option>
+                                    <option value="forest">Forest</option>
+                                    <option value="grassland">Grassland</option>
+                                    <option value="wetland">Wetland/Lake</option>
+                                    <option value="urban">Urban/Park</option>
+                                    <option value="mountainous">Mountainous</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-actions">
+                                <button type="button" class="btn-prev" data-prev="species-details">Previous</button>
+                                <button type="submit" class="btn-primary">Submit Observation</button>
+                            </div>
+                        </div>
+                        
+                        <div class="form-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 33%"></div>
+                            </div>
+                            <div class="progress-status">Step 1 of 3</div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 BioScout Islamabad - Community-driven biodiversity monitoring</p>
+    </footer>
+
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="/static/js/map.js"></script>
+    <script src="/static/js/query.js"></script>
+    <script src="/static/js/observation.js"></script>
+</body>
+</html> 
