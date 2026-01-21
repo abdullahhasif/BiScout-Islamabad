@@ -1,2 +1,4 @@
 *.csv
 bioscout_islamabad/.env
+*.pyc
+*.json
