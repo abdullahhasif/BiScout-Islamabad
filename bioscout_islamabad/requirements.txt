@@ -1,0 +1,25 @@
+# Web framework
+flask==2.3.3
+flask-cors==4.0.0
+werkzeug==3.0.1
+
+# Environment and configuration
+python-dotenv==1.0.0
+
+# Image processing
+Pillow==10.0.0
+
+# Data handling
+numpy==2.0.0
+
+# OpenAI integration
+openai==1.0.0
+
+# RAG system requirements
+llama-index-core==0.10.0
+llama-index-embeddings-openai==0.1.0
+llama-index-llms-openai==0.1.0
+requests==2.31.0
+
+# Utilities
+python-dateutil==2.8.2 
